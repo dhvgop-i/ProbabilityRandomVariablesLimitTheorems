@@ -88,6 +88,7 @@ H <- t(matrix(c(1, 0, 1, 0, 1, 0, 1,
 
 ```{r}
 # generate N messages
+set.seed(id)
 message_generator <- function(N) {
   matrix(sample(c(0,1), 4*N, replace = TRUE), nrow = N)
 }
@@ -101,6 +102,7 @@ codewords <- (messages %*% G) %% 2
 #### Generate random errors; do not forget that they occur with probability $p$! Next, generate the received messages
 
 ```{r}
+set.seed(id)
 errors <- matrix(rbinom(N * 7, size = 1, prob = p), nrow = N)
 received <- (codewords + errors) %% 2
 ```
@@ -317,9 +319,46 @@ curve(pnorm(x, mean = mu, sd = sigma), col = "red", lwd = 2, add = TRUE)
     1/mean(X)) and mean(1/X), are not equal. This is the main takeaway.
     3.  Let $X$ and $Y$ be exponentially distributed r.v.'s with parameter $\lambda = 2$. Set $Z := \log{X} + 5$. Plot the Quantile-Quantile plot and scatterplot of $X$ and $Y$. Plot the Quantile-Quantile plot and scatterplot of $X$ and $Z$. Explain the results. Comment on the difference of relations between the pairs of random variables. Which pair of r.v.'s is dependent and which one is similar?
 
-        ```{r}
-        # YOUR CODE HERE
-        ```
+    ```{r}
+    # YOUR CODE HERE
+    N <- 1000
+    lambda <- 2
+    set.seed(id)
+
+    x <- rexp(N, rate = lambda)
+    y <- rexp(N, rate = lambda)
+
+    z <- log(x) + 5
+
+    par(mfrow = c(2, 2), mar = c(4.5, 4.5, 3, 1.5))
+
+    plot(x, y, main = "Scatterplot of X and Y",
+         xlab = "X", ylab = "Y",
+         pch = 19, col = alpha("blue", 0.3))
+    cor_xy <- cor(x, y)
+    legend("topright", legend = paste("Cor =", round(cor_xy, 4)), bty = "n")
+
+    qqplot(x, y, main = "QQ Plot of X and Y",
+           xlab = "X Quantiles", ylab = "Y Quantiles",
+           pch = 19, col = alpha("blue", 0.3))
+    abline(0, 1, col = "red", lwd = 2)
+    
+    plot(x, z, main = "Scatterplot of X and Z",
+         xlab = "X", ylab = "Z = log(X) + 5",
+         pch = 19, col = alpha("darkgreen", 0.3))
+    cor_xz <- cor(x, z)
+    legend("bottomright", legend = paste("Cor =", round(cor_xz, 4)), bty = "n")
+    
+    qqplot(x, z, main = "QQ Plot of X and Z",
+           xlab = "X Quantiles", ylab = "Z Quantiles",
+           pch = 19, col = alpha("darkgreen", 0.3))
+    abline(0, 1, col = "red", lwd = 2)
+  
+    par(mfrow = c(1, 1))
+    ```
+
+  For X and Y we see on scatterplot a shapeless set of points denser near the origin, it is as this because knowing the value of one r.v doesn't give any information about another. Correlation is very close to zero. On Quantile-Quantile plot (QQ plot) we can see how points almost perfectly align with y=x line. It is expected, as they are identically distributed.
+  For X and Y we see on scatterplot that they depend on each other with correlation of $\approx 0.78$ which only describes the strength of linear relationship, but we can see very clear logarithmic curve, what shows that the value of one variable definitely depend on the value of another variable as we see some function graph, not a chaos. On the QQ plot we see how quantiles of X and Z doesn't match at all, what is expected as they have completely different distribution.
 
     ------------------------------------------------------------------------
 
@@ -328,28 +367,76 @@ curve(pnorm(x, mean = mu, sd = sigma), col = "red", lwd = 2, add = TRUE)
     To answer this,
 
     1.  Explain what type of random variable is X:
-
-        -   Normally distributed
-
-        -   Binomially distributed
-
-        -   Poisson distributed
-
-        -   Uniformly distributed
+      X is a Binomially distributed random variable, as we have a fixed number of trials, each trial is independent, each trial has only 2 possible outcomes (success or failure), probability of success is constant p=0.5
 
     2.  What are the expected value and variance of X? Simulate realizations $x_1,x_2,\dots,x_{100}$ of $X$ to calculate the values of sample mean $\overline{\mathbf{X}}$ and sample variance $s^2 = \frac{\sum_{i=1}^{n}{(x_i - \overline{x})^{2}}}{n-1}$. Comment on the results;
 
-        ```{r}
-        # YOUR CODE HERE
-        ```
+    ```{r}
+    n_trials <- 3
+    p_success <- 0.5
+    N <- 100
+    set.seed(id)
 
+    x_realizations <- rbinom(N, size = n_trials, prob = p_success)
+
+    sample_mean_x <- mean(x_realizations)
+    sample_variance_x <- var(x_realizations) # uses the same formula Var(x) = sum((xi-mean)^2)/(n-1)
+
+    print(paste("Theoretical E(X):", 1.5))
+    print(paste("Sample Mean (X-bar):", sample_mean_x))
+    
+    print(paste("Theoretical Var(X):", 0.75))
+    print(paste("Sample Variance (s^2):", sample_variance_x))
+    ```
+    The sample mean X  is very close to the theoretical expected value E(X) (1.5). The sample variance is also not so far from theoretical variance (0.75). As N=100 is relatively small our mean and variance is close to the theoretical but not very. For example, for N = 100000 we will have a result that differenciate from the theoretical for not so much, that works like that because of the Law of Large Numbers
+    ```{r}
+    N = 100000
+    set.seed(id)
+    x_realizations <- rbinom(N, size = n_trials, prob = p_success)
+
+    sample_mean <- mean(x_realizations)
+    sample_variance <- var(x_realizations) # uses the same formula Var(x) = sum((xi-mean)^2)/(n-1)
+
+    print(paste("Theoretical E(X):", 1.5))
+    print(paste("Sample Mean (X-bar):", sample_mean))
+    
+    print(paste("Theoretical Var(X):", 0.75))
+    print(paste("Sample Variance (s^2):", sample_variance))
+    ```
+  
     3.  What are the expected value and variance of Y? Simulate realizations $y_1,y_2,\dots,y_{100}$ of $Y$ to calculate the values of sample mean $\overline{\mathbf{Y}}$ and sample variance $s^2 = \frac{\sum_{i=1}^{n}{(y_i - \overline{y})^{2}}}{n-1}$. Comment on the results;
 
-        ```{r}
-        # YOUR CODE HERE
-        ```
+    ```{r}
+    # YOUR CODE HERE
+    n_trials <- 3
+    p_success <- 0.5
+    N <- 100
+    set.seed(id)
 
-**Do not forget to include several sentences summarizing your work and the conclusions you have made!**
+    x_realizations <- rbinom(N, size = n_trials, prob = p_success)
+    
+    y_realizations <- 0.5 * x_realizations - 1
+    
+    sample_mean_y <- mean(y_realizations)
+    
+    sample_variance_y <- var(y_realizations)
+    
+    print(paste("Theoretical E(Y):", -0.25))
+    print(paste("Sample Mean (Y-bar):", sample_mean_y))
+    
+    print(paste("Theoretical Var(Y):", 0.1875))
+    print(paste("Sample Variance (s^2):", sample_variance_y))
+    ```
+    The sample mean and variance is also pretty close to the theoretical one. But more interesting is that the transformation rules hold very nice:
+    ```{r}
+    transfomed_y_mean = 0.5*sample_mean_x - 1
+    transformed_y_variance = 0.25*sample_variance_x
+    
+    print(paste("Sample mean y calculated:", sample_mean_y))
+    print(paste("Sample mean y transformed:", transfomed_y_mean))
+    print(paste("Sample variance y calculated:", sample_variance_y))
+    print(paste("Sample mean y transformed:", transformed_y_variance))
+    ```
 
 ------------------------------------------------------------------------
 
