@@ -196,35 +196,199 @@ Assume that a medical laboratory receives $n$ samples of radioactive element ${{
     -   repeat this $K$ times to get the sample $\mathbf{s}=(s_1,\dots,s_K)$ of sums;
     -   calculate the number of elements of the sample which are less than critical value ($8 \times 10^8$) and calculate the empirical probability; comment whether it is close to the desired level $0.95$
 
-```{r}
-lambda <- 1  # change this!
-N <- 100     # change this!
-mu <- N * lambda
-K <- 1e3
-n <- 5
-sample_means <- colMeans(matrix(rpois(n*K, lambda = mu), nrow=n))
-```
-
-#### Next, calculate the parameters of the standard normal approximation
 
 ```{r}
-mu <- 0       # change this!
-sigma <- 1    # change this!
+
+calculate_poisson_param <- function(team_id, molar_mass_Cs137) {
+  N_A <- 6.022e23       # Стала Авогадро
+  T_years <- 30.1       # Період напіврозпаду (роки)
+  seconds_per_year <- 365.25 * 24 * 60 * 60
+  T_seconds <- T_years * seconds_per_year
+  m <- team_id * 1e-6
+  M <- molar_mass_Cs137
+  lambda_activity <- log(2) / T_seconds
+  N_atoms <- (m / M) * N_A
+  mu <- N_atoms * lambda_activity # Параметр Пуассона
+  return(mu)
+}
+
+
+
+
+generate_sample_means <- function(mu, n, K) {
+
+  all_decays <- rpois(n * K, lambda = mu)
+
+  decay_matrix <- matrix(all_decays, nrow = n, ncol = K)
+  sample_means <- colMeans(decay_matrix)
+
+  cat(sprintf("  (Згенеровано %d середніх для n=%d)\n", K, n))
+  return(sample_means)
+}
+
+
+
+
+plot_cdfs <- function(sample_means, mu, n) {
+
+  mean_normal <- mu
+  sd_normal <- sqrt(mu / n)
+
+
+  ecdf_s <- ecdf(sample_means)
+
+  plot(ecdf_s,
+       main = paste("ECDF vs Normal CDF (n =", n, ")"),
+       xlab = "Вибіркове середнє",
+       ylab = "Кумулятивна ймовірність",
+       col = "blue",
+       verticals = TRUE,
+       do.points = FALSE)
+
+  curve(pnorm(x, mean = mean_normal, sd = sd_normal),
+        add = TRUE,
+        col = "red",
+        lwd = 2)
+
+  legend("bottomright", legend = c("Емпірична CDF", "Теоретична Normal CDF"),
+         col = c("blue", "red"), lty = 1, lwd = c(1, 2))
+}
+
+
+
+calculate_max_cdf_diff <- function(sample_means, mu, n) {
+  mean_normal <- mu
+  sd_normal <- sqrt(mu / n)
+
+  ks_result <- ks.test(sample_means, "pnorm", mean = mean_normal, sd = sd_normal)
+
+  max_diff <- ks_result$statistic
+
+  cat(sprintf("  (Обчислено макс. різницю CDF (D=%.4f) для n=%d)\n", max_diff, n))
+  return(max_diff)
+}
+
+
+
+
+
+calculate_theoretical_n_bounds <- function(mu, critical_sum, probability_threshold) {
+  cat("  (Рахуємо теоретичні межі для n...)\n")
+
+  # Марков
+  n_markov <- floor((1 - probability_threshold) * critical_sum / mu)
+
+  # Чернов
+  a_ch <- mu
+  b_ch <- 1.645 * sqrt(mu)
+  c_ch <- -critical_sum
+  delta_ch <- b_ch^2 - 4 * a_ch * c_ch
+  if (delta_ch < 0) {
+    n_chernoff <- 0
+  } else {
+
+    sqrt_n_chernoff <- (-b_ch + sqrt(delta_ch)) / (2 * a_ch)
+    n_chernoff <- floor(sqrt_n_chernoff^2)
+  }
+
+
+  # CLT
+  z_score_clt <- qnorm(probability_threshold)
+  a_clt <- mu
+  b_clt <- z_score_clt * sqrt(mu)
+  c_clt <- -critical_sum
+  delta_clt <- b_clt^2 - 4 * a_clt * c_clt
+   if (delta_clt < 0) {
+    n_clt <- 0
+  } else {
+    sqrt_n_clt <- (-b_clt + sqrt(delta_clt)) / (2 * a_clt)
+    n_clt <- floor(sqrt_n_clt^2)
+   }
+
+
+  return(list(markov = n_markov, chernoff = n_chernoff, clt = n_clt))
+}
+
+
+
+
+generate_sample_sums <- function(mu, n, K) {
+  sample_sums <- replicate(K, sum(rpois(n, lambda = mu)))
+
+  return(sample_sums)
+}
+
+
+
+
+run_simulation_analysis <- function(mu, n_values, K, critical_sum) {
+
+  cat("\n--- Cимуляція ---\n")
+
+  results_clt <- list()
+
+  for (n in n_values) {
+    cat(sprintf("Виконується для n = %d...\n", n))
+  
+
+    sample_means <- generate_sample_means(mu, n, K)
+    plot_cdfs(sample_means, mu, n)
+    max_diff <- calculate_max_cdf_diff(sample_means, mu, n)
+
+    results_clt[[as.character(n)]] <- list(max_diff = max_diff)
+    cat(sprintf("  Макс. різниця CDF для n=%d: %.4f\n", n, max_diff))
+  }
+
+
+  theoretical_bounds <- calculate_theoretical_n_bounds(mu, critical_sum, 0.95)
+  n_clt <- theoretical_bounds$clt
+  cat(sprintf("  Теоретичні межі n: Марков=%.0f, Чернов=%.0f, ЦГТ=%.0f\n",
+              theoretical_bounds$markov, theoretical_bounds$chernoff, n_clt))
+  
+
+  n_target <- floor(n_clt)
+  if (is.finite(n_target) && n_target > 0) {
+    cat(sprintf("Симуляція для n = %d...\n", n_target))
+
+
+    sums_s <- generate_sample_sums(mu, n_target, K)
+
+    empirical_prob <- sum(sums_s < critical_sum) / K
+    cat(sprintf("  Емпірична ймовірність P(Сума < %.0e) = %.4f (для n=%d)\n", critical_sum, empirical_prob, n_target))
+
+    cat(sprintf("  Коментар: Емпірична ймовірність %.4f %s близька до 0.95.\n",
+                empirical_prob, ifelse(abs(empirical_prob - 0.95) < 0.02, "є", "НЕ є")))
+  } else {
+    cat("Не вдалося визначити n для симуляції сум.\n")
+  }
+  cat("\n--- Аналіз завершено ---\n")
+}
+
+
+
+
+
+
+
+
+
+my_team_id <- 1
+molar_mass_cesium137 <- 137
+
+calculated_mu <- calculate_poisson_param(team_id = my_team_id,
+                                        molar_mass_Cs137 = molar_mass_cesium137)
+
+
+
+run_simulation_analysis(mu = calculated_mu,
+                        n_values = c(5, 10, 50),
+                        K = 1000,
+                        critical_sum = 8e8)
+
+
 ```
 
-#### We can now plot ecdf and cdf
 
-```{r}
-xlims <- c(mu-3*sigma,mu+3*sigma)
-Fs <- ecdf(sample_means)
-plot(Fs, 
-     xlim = xlims, 
-     ylim = c(0,1),
-     col = "blue",
-     lwd = 2,
-     main = "Comparison of ecdf and cdf")
-curve(pnorm(x, mean = mu, sd = sigma), col = "red", lwd = 2, add = TRUE)
-```
 
 **Next, proceed with all the remaining steps**
 
