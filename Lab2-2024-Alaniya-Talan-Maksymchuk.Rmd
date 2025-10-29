@@ -196,15 +196,15 @@ Assume that a medical laboratory receives $n$ samples of radioactive element ${{
 ```{r}
 
 calculate_poisson_param <- function(team_id, molar_mass_Cs137) {
-  N_A <- 6.022e23       # Стала Авогадро
-  T_years <- 30.1       # Період напіврозпаду (роки)
+  N_A <- 6.022e23       # Avogadro
+  T_years <- 30.1       # Half-life
   seconds_per_year <- 365.25 * 24 * 60 * 60
   T_seconds <- T_years * seconds_per_year
   m <- team_id * 1e-6
   M <- molar_mass_Cs137
   lambda_activity <- log(2) / T_seconds
   N_atoms <- (m / M) * N_A
-  mu <- N_atoms * lambda_activity # Параметр Пуассона
+  mu <- N_atoms * lambda_activity # Poisson
   return(mu)
 }
 
@@ -218,7 +218,8 @@ generate_sample_means <- function(mu, n, K) {
   decay_matrix <- matrix(all_decays, nrow = n, ncol = K)
   sample_means <- colMeans(decay_matrix)
 
-  cat(sprintf("  (Згенеровано %d середніх для n=%d)\n", K, n))
+  cat(sprintf("Average (K=%d, n=%d): %.4f\n", K, n, mean(sample_means)))
+
   return(sample_means)
 }
 
@@ -235,8 +236,8 @@ plot_cdfs <- function(sample_means, mu, n) {
 
   plot(ecdf_s,
        main = paste("ECDF vs Normal CDF (n =", n, ")"),
-       xlab = "Вибіркове середнє",
-       ylab = "Кумулятивна ймовірність",
+       xlab = "Sample average",
+       ylab = "Cumulative probability",
        col = "blue",
        verticals = TRUE,
        do.points = FALSE)
@@ -246,7 +247,7 @@ plot_cdfs <- function(sample_means, mu, n) {
         col = "red",
         lwd = 2)
 
-  legend("bottomright", legend = c("Емпірична CDF", "Теоретична Normal CDF"),
+  legend("bottomright", legend = c("ЕCDF", "Normal CDF"),
          col = c("blue", "red"), lty = 1, lwd = c(1, 2))
 }
 
@@ -256,11 +257,13 @@ calculate_max_cdf_diff <- function(sample_means, mu, n) {
   mean_normal <- mu
   sd_normal <- sqrt(mu / n)
 
-  ks_result <- ks.test(sample_means, "pnorm", mean = mean_normal, sd = sd_normal)
+  ks_result <- ks.test(sample_means + runif(length(sample_means), -1e-6, 1e-6),
+                     "pnorm", mean = mean_normal, sd = sd_normal)
+
 
   max_diff <- ks_result$statistic
 
-  cat(sprintf("  (Обчислено макс. різницю CDF (D=%.4f) для n=%d)\n", max_diff, n))
+  cat(sprintf("  Max diff CDF (D=%.4f) для n=%d)\n", max_diff, n))
   return(max_diff)
 }
 
@@ -269,7 +272,6 @@ calculate_max_cdf_diff <- function(sample_means, mu, n) {
 
 
 calculate_theoretical_n_bounds <- function(mu, critical_sum, probability_threshold) {
-  cat("  (Рахуємо теоретичні межі для n...)\n")
 
   # Марков
   n_markov <- floor((1 - probability_threshold) * critical_sum / mu)
@@ -319,12 +321,10 @@ generate_sample_sums <- function(mu, n, K) {
 
 run_simulation_analysis <- function(mu, n_values, K, critical_sum) {
 
-  cat("\n--- Cимуляція ---\n")
-
   results_clt <- list()
 
   for (n in n_values) {
-    cat(sprintf("Виконується для n = %d...\n", n))
+    cat(sprintf("n: %d\n", n))
   
 
     sample_means <- generate_sample_means(mu, n, K)
@@ -332,32 +332,32 @@ run_simulation_analysis <- function(mu, n_values, K, critical_sum) {
     max_diff <- calculate_max_cdf_diff(sample_means, mu, n)
 
     results_clt[[as.character(n)]] <- list(max_diff = max_diff)
-    cat(sprintf("  Макс. різниця CDF для n=%d: %.4f\n", n, max_diff))
+    cat(sprintf("  max_diff CDF n=%d: %.4f\n", n, max_diff))
   }
 
 
   theoretical_bounds <- calculate_theoretical_n_bounds(mu, critical_sum, 0.95)
   n_clt <- theoretical_bounds$clt
-  cat(sprintf("  Теоретичні межі n: Марков=%.0f, Чернов=%.0f, ЦГТ=%.0f\n",
+  cat(sprintf("  Theoretical bounds n: Марков=%.0f, Чернов=%.0f, CLT=%.0f\n",
               theoretical_bounds$markov, theoretical_bounds$chernoff, n_clt))
   
 
   n_target <- floor(n_clt)
   if (is.finite(n_target) && n_target > 0) {
-    cat(sprintf("Симуляція для n = %d...\n", n_target))
+    cat(sprintf("n: ", n_target))
 
 
     sums_s <- generate_sample_sums(mu, n_target, K)
 
     empirical_prob <- sum(sums_s < critical_sum) / K
-    cat(sprintf("  Емпірична ймовірність P(Сума < %.0e) = %.4f (для n=%d)\n", critical_sum, empirical_prob, n_target))
+    cat(sprintf("  Empirical prob (sum %.0e) = %.4f (for n=%d)\n", critical_sum, empirical_prob, n_target))
 
-    cat(sprintf("  Коментар: Емпірична ймовірність %.4f %s близька до 0.95.\n",
-                empirical_prob, ifelse(abs(empirical_prob - 0.95) < 0.02, "є", "НЕ є")))
+    cat(sprintf("  Empirical prob %.4f %s is close to 0.95.\n",
+                empirical_prob, ifelse(abs(empirical_prob - 0.95) < 0.02, "is", "isn't")))
   } else {
-    cat("Не вдалося визначити n для симуляції сум.\n")
+    cat("Err")
   }
-  cat("\n--- Аналіз завершено ---\n")
+
 }
 
 
@@ -380,6 +380,7 @@ run_simulation_analysis(mu = calculated_mu,
                         n_values = c(5, 10, 50),
                         K = 1000,
                         critical_sum = 8e8)
+
 
 
 ```
