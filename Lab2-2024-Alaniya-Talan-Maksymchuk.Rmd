@@ -124,8 +124,7 @@ index_matrix <- cbind(which(errors_positions > 0),
 corrected[index_matrix] <- (corrected[index_matrix] + 1) %% 2
 ```
 
-For the hamming code probability of having messages correctly restored is $p^* = (1-p)^7 + 7p(1-p)^6$, that the probability of having less then or equal to 1 errors in the message. So for our p = 1/100 we have $p^* = (1-0.01)^7+7\cdot0.01\cdot(1-0.01)^6 \approx 0.99797$
-For large N we will have $p^* \approx \hat{p}$ according to the Law of Large Numbers
+For the hamming code probability of having messages correctly restored is $p^* = (1-p)^7 + 7p(1-p)^6$, that the probability of having less then or equal to 1 errors in the message. So for our p = 1/100 we have $p^* = (1-0.01)^7+7\cdot0.01\cdot(1-0.01)^6 \approx 0.99797$ For large N we will have $p^* \approx \hat{p}$ according to the Law of Large Numbers
 
 ```{r}
 message_restored <- corrected[, c(3, 5, 6, 7)]
@@ -143,17 +142,14 @@ print(paste("Estimated probability (p-hat) of correct transmission:", p_hat))
 
 As we can see for p = 0.41, N = 100 is not large enough to have $p^*$ close to $\hat{p}$
 
-2.
-95% confidence interval for $p^*$ is given by $(\hat{p}-\epsilon, \hat{p}+\epsilon)$, where:
-$\epsilon = 1.96 \cdot \sqrt{\frac{\hat{p}(1-\hat{p})}{N}}$, so for $\epsilon \le 0.03$ we will have:
-$0.03 \ge 1.96 \cdot \sqrt{\frac{\hat{p}(1-\hat{p})}{N}} \to N \ge \hat{p}(1-\hat{p})\cdot(1.96/0.03)^2$
-so for our $\hat{p} = 0.99$ we will have:
+2.  95% confidence interval for $p^*$ is given by $(\hat{p}-\epsilon, \hat{p}+\epsilon)$, where: $\epsilon = 1.96 \cdot \sqrt{\frac{\hat{p}(1-\hat{p})}{N}}$, so for $\epsilon \le 0.03$ we will have: $0.03 \ge 1.96 \cdot \sqrt{\frac{\hat{p}(1-\hat{p})}{N}} \to N \ge \hat{p}(1-\hat{p})\cdot(1.96/0.03)^2$ so for our $\hat{p} = 0.99$ we will have:
+
 ```{r}
 N_bound = p_hat*(1-p_hat) * (1.96/0.03)^2
 print(paste("N >=", N_bound))
 ```
 
-3. The r.v. that counts the number of wrong bits in decoded message does not have any known distribution. It is closest to binomial but it isn't binomial, as it doesn't have independence for binomial distribution (probability that 5 bit being wrong is not independent of the probability of 3 bit being wrong), also we would have an error in the resulting, decoded and corrected message only if 2 or more errors occurred, and this "if" does not fit in any know distrubution.
+3.  The r.v. that counts the number of wrong bits in decoded message does not have any known distribution. It is closest to binomial but it isn't binomial, as it doesn't have independence for binomial distribution (probability that 5 bit being wrong is not independent of the probability of 3 bit being wrong), also we would have an error in the resulting, decoded and corrected message only if 2 or more errors occurred, and this "if" does not fit in any know distrubution.
 
 ```{r}
 library(ggplot2)
@@ -173,6 +169,7 @@ ggplot(plot_data, aes(x = errors, fill = errors)) +
   ) +
   theme_minimal(base_size = 14)
 ```
+
 ------------------------------------------------------------------------
 
 ### Task 2.
@@ -195,7 +192,6 @@ Assume that a medical laboratory receives $n$ samples of radioactive element ${{
     -   simulate the realization $x_1,x_2,\dots,x_n$ of the $X_i$ and calculate the sum $s=x_1 + \cdots +x_n$;
     -   repeat this $K$ times to get the sample $\mathbf{s}=(s_1,\dots,s_K)$ of sums;
     -   calculate the number of elements of the sample which are less than critical value ($8 \times 10^8$) and calculate the empirical probability; comment whether it is close to the desired level $0.95$
-
 
 ```{r}
 
@@ -388,8 +384,6 @@ run_simulation_analysis(mu = calculated_mu,
 
 ```
 
-
-
 **Next, proceed with all the remaining steps**
 
 **Do not forget to include several sentences summarizing your work and the conclusions you have made!**
@@ -418,35 +412,103 @@ run_simulation_analysis(mu = calculated_mu,
 #### First, generate samples an sample means:
 
 ```{r}
-nu1 <- 1  # change this!
+nu1 <- 51
 K <- 1e3
-n <- 5
-sample_means <- colMeans(matrix(rexp(n*K, rate = nu1), nrow=n))
+n <- 50
+sample_means <- colMeans(matrix(rexp(n*K, rate = nu1), nrow = n))
 ```
 
 #### Next, calculate the parameters of the standard normal approximation
 
 ```{r}
-mu <- 0       # change this!
-sigma <- 1    # change this!
+calc_sample_means<- function(n, K, nu1){
+  mu <- 1/nu1
+  sigma <- 1/(nu1 * sqrt(n))
+  sample_means <- colMeans(matrix(rexp(n*K, rate = nu1), nrow = n))
+  return(list(
+    sample_means = sample_means,
+    mu = mu,
+    sigma = sigma,
+    n = n
+  ))
+}
 ```
 
 #### We can now plot ecdf and cdf
 
 ```{r}
-xlims <- c(mu-3*sigma,mu+3*sigma)
-Fs <- ecdf(sample_means)
-plot(Fs, 
-     xlim = xlims, 
-     col = "blue",
-     lwd = 2,
-     main = "Comparison of ecdf and cdf")
-curve(pnorm(x, mean = mu, sd = sigma), col = "red", lwd = 2, add = TRUE)
+plot_comparison <- function(result) {
+  sample_means <- result$sample_means
+  mu <- result$mu
+  sigma <- result$sigma
+  n <- result$n
+  
+  xlims <- c(mu-3*sigma,mu+3*sigma)
+  Fs <- ecdf(sample_means)
+  
+  plot(Fs, 
+       xlim = xlims, 
+       col = "blue",
+       lwd = 2,
+       main = paste("Comparison of ecdf and cdf for n=", n),
+        xlab = "Sample Mean",
+       ylab = "Cumulative Probability")
+      
+  curve(pnorm(x, mean = mu, sd = sigma), col = "red", lwd = 2, add = TRUE)
+  grid()
+}
+plot_comparison(calc_sample_means(n, K, nu1))
+  
 ```
 
 **Next, proceed with all the remaining steps**
 
 **Do not forget to include several sentences summarizing your work and the conclusions you have made!**
+
+Now we can calculate the maximal difference between the two CDF's
+
+```{r}
+calculate_max_difference <- function(result) {
+  sample_means <- result$sample_means
+  mu <- result$mu
+  sigma <- result$sigma
+  
+  ks_test <- ks.test(sample_means, "pnorm", mean = mu, sd = sigma)
+  
+  max_diff <- ks_test$statistic  # The maximum distance D
+  p_value <- ks_test$p.value     # Probability of seeing this difference by chance
+  
+  return(list(
+    max_diff = max_diff,  # How far apart the distributions are
+    p_value = p_value     # Is this difference statistically significant?
+  ))
+}
+calculate_max_difference(calc_sample_means(n, K, nu1))
+
+
+```
+
+Let's analyze for different n
+
+```{r}
+par(mfrow = c(1, 3), mar = c(5, 4, 4, 2) + 0.1, oma = c(0, 0, 2, 0))
+n_values <- c(5, 10, 50)
+results <- list()
+for (i in 1:length(n_values)) {
+  n <- n_values[i]
+  cat("Analysis for n =", n, "\n")
+  result <- calc_sample_means(n, K, nu1)
+  results[[i]] <- result
+  
+  cat("Parameters of normal approximation:\n")
+  cat("  mu (mean) =", result$mu, "\n")
+  cat("  sigma (std dev) =", result$sigma, "\n\n")
+  plot_comparison(result)
+  diff_result <- calculate_max_difference(result)
+  cat("Maximum difference (KS statistic):", diff_result$max_diff, "\n")
+  cat("KS test p-value:", diff_result$p_value, "\n\n")
+}
+```
 
 ------------------------------------------------------------------------
 
@@ -456,8 +518,7 @@ curve(pnorm(x, mean = mu, sd = sigma), col = "red", lwd = 2, add = TRUE)
 
 1.  **In this part, we discuss independence of random variables and its moments: expectation and variance.**
 
-    1.  Suppose we have a random variable $X$. Explain why $\mathbb{E}(\frac{1}{X}) \neq \frac{1}{\mathbb{E(X)}}$;
-    Answer: because for X - continuous r.v: $E(g(X)) = \int_{-\infty}^{\infty} g(x) \cdot f_{X}(x) \,dx$, X - discrete r.v: $E(g(X)) = \sum_{i} g(x_{i}) \cdot P(X=x_{i})$, and for non X $E(g(X)) = g(E(X))$
+    1.  Suppose we have a random variable $X$. Explain why $\mathbb{E}(\frac{1}{X}) \neq \frac{1}{\mathbb{E(X)}}$; Answer: because for X - continuous r.v: $E(g(X)) = \int_{-\infty}^{\infty} g(x) \cdot f_{X}(x) \,dx$, X - discrete r.v: $E(g(X)) = \sum_{i} g(x_{i}) \cdot P(X=x_{i})$, and for non X $E(g(X)) = g(E(X))$
 
     2.  Let $X \sim \mathscr{N}(\mu,\sigma^2)$ with $\mu = teamidnumber$ and $\sigma^{2} = 2\times teamidnumber+7$. Simulate realizations $x_1,x_2,\dots,x_{100}$ of $X$ and $y_1,y_2,\dots,y_{100}$ of $Y := \frac{1}{X}$ to calculate the values of $\frac{1}{\overline{\textbf{X}}}$ and $\overline{\textbf{Y}}$. Comment on the received results;
 
@@ -465,22 +526,23 @@ curve(pnorm(x, mean = mu, sd = sigma), col = "red", lwd = 2, add = TRUE)
     mu <- id
     sigma <- sqrt(2*id+7)
     N <- 100
-    
+
     # YOUR CODE HERE
     x_vals <- rnorm(N, mean = mu, sd = sigma)
     y_vals <- 1 / x_vals
-    
+
     mean_x <- mean(x_vals)
     val1 <- 1 / mean_x
-    
+
     val2 <- mean(y_vals)
-    
+
     print(paste("μ =", mu, "and σ^2 =", sigma^2))
     print(paste("1 / X_bar (1/mean(X)):", val1))
     print(paste("Y_bar (mean(Y) or mean(1/X)):", val2))
     ```
 
     1/mean(X)) and mean(1/X), are not equal. This is the main takeaway.
+
     3.  Let $X$ and $Y$ be exponentially distributed r.v.'s with parameter $\lambda = 2$. Set $Z := \log{X} + 5$. Plot the Quantile-Quantile plot and scatterplot of $X$ and $Y$. Plot the Quantile-Quantile plot and scatterplot of $X$ and $Z$. Explain the results. Comment on the difference of relations between the pairs of random variables. Which pair of r.v.'s is dependent and which one is similar?
 
     ```{r}
@@ -506,32 +568,32 @@ curve(pnorm(x, mean = mu, sd = sigma), col = "red", lwd = 2, add = TRUE)
            xlab = "X Quantiles", ylab = "Y Quantiles",
            pch = 19, col = alpha("blue", 0.3))
     abline(0, 1, col = "red", lwd = 2)
-    
+
     plot(x, z, main = "Scatterplot of X and Z",
          xlab = "X", ylab = "Z = log(X) + 5",
          pch = 19, col = alpha("darkgreen", 0.3))
     cor_xz <- cor(x, z)
     legend("bottomright", legend = paste("Cor =", round(cor_xz, 4)), bty = "n")
-    
+
     qqplot(x, z, main = "QQ Plot of X and Z",
            xlab = "X Quantiles", ylab = "Z Quantiles",
            pch = 19, col = alpha("darkgreen", 0.3))
     abline(0, 1, col = "red", lwd = 2)
-  
+      
     par(mfrow = c(1, 1))
     ```
 
-  For X and Y we see on scatterplot a shapeless set of points denser near the origin, it is as this because knowing the value of one r.v doesn't give any information about another. Correlation is very close to zero. On Quantile-Quantile plot (QQ plot) we can see how points almost perfectly align with y=x line. It is expected, as they are identically distributed.
-  For X and Y we see on scatterplot that they depend on each other with correlation of $\approx 0.78$ which only describes the strength of linear relationship, but we can see very clear logarithmic curve, what shows that the value of one variable definitely depend on the value of another variable as we see some function graph, not a chaos. On the QQ plot we see how quantiles of X and Z doesn't match at all, what is expected as they have completely different distribution.
+For X and Y we see on scatterplot a shapeless set of points denser near the origin, it is as this because knowing the value of one r.v doesn't give any information about another. Correlation is very close to zero. On Quantile-Quantile plot (QQ plot) we can see how points almost perfectly align with y=x line. It is expected, as they are identically distributed. For X and Y we see on scatterplot that they depend on each other with correlation of $\approx 0.78$ which only describes the strength of linear relationship, but we can see very clear logarithmic curve, what shows that the value of one variable definitely depend on the value of another variable as we see some function graph, not a chaos. On the QQ plot we see how quantiles of X and Z doesn't match at all, what is expected as they have completely different distribution.
 
-    ------------------------------------------------------------------------
+```         
+------------------------------------------------------------------------
+```
 
 2.  You toss a fair coin three times and a random variable $X$ records how many times the coin shows Heads. You convince your friend that they should play a game with the following payoff: every round (equivalent to three coin tosses) will cost £$1$. They will receive £$0.5$ for every coin showing Heads. What is the expected value and the variance of the random variable $Y := 0.5X-1$?
 
     To answer this,
 
-    1.  Explain what type of random variable is X:
-      X is a Binomially distributed random variable, as we have a fixed number of trials, each trial is independent, each trial has only 2 possible outcomes (success or failure), probability of success is constant p=0.5
+    1.  Explain what type of random variable is X: X is a Binomially distributed random variable, as we have a fixed number of trials, each trial is independent, each trial has only 2 possible outcomes (success or failure), probability of success is constant p=0.5
 
     2.  What are the expected value and variance of X? Simulate realizations $x_1,x_2,\dots,x_{100}$ of $X$ to calculate the values of sample mean $\overline{\mathbf{X}}$ and sample variance $s^2 = \frac{\sum_{i=1}^{n}{(x_i - \overline{x})^{2}}}{n-1}$. Comment on the results;
 
@@ -548,11 +610,13 @@ curve(pnorm(x, mean = mu, sd = sigma), col = "red", lwd = 2, add = TRUE)
 
     print(paste("Theoretical E(X):", 1.5))
     print(paste("Sample Mean (X-bar):", sample_mean_x))
-    
+
     print(paste("Theoretical Var(X):", 0.75))
     print(paste("Sample Variance (s^2):", sample_variance_x))
     ```
-    The sample mean X  is very close to the theoretical expected value E(X) (1.5). The sample variance is also not so far from theoretical variance (0.75). As N=100 is relatively small our mean and variance is close to the theoretical but not very. For example, for N = 100000 we will have a result that differenciate from the theoretical for not so much, that works like that because of the Law of Large Numbers
+
+    The sample mean X is very close to the theoretical expected value E(X) (1.5). The sample variance is also not so far from theoretical variance (0.75). As N=100 is relatively small our mean and variance is close to the theoretical but not very. For example, for N = 100000 we will have a result that differenciate from the theoretical for not so much, that works like that because of the Law of Large Numbers
+
     ```{r}
     N = 100000
     set.seed(id)
@@ -563,11 +627,11 @@ curve(pnorm(x, mean = mu, sd = sigma), col = "red", lwd = 2, add = TRUE)
 
     print(paste("Theoretical E(X):", 1.5))
     print(paste("Sample Mean (X-bar):", sample_mean))
-    
+
     print(paste("Theoretical Var(X):", 0.75))
     print(paste("Sample Variance (s^2):", sample_variance))
     ```
-  
+
     3.  What are the expected value and variance of Y? Simulate realizations $y_1,y_2,\dots,y_{100}$ of $Y$ to calculate the values of sample mean $\overline{\mathbf{Y}}$ and sample variance $s^2 = \frac{\sum_{i=1}^{n}{(y_i - \overline{y})^{2}}}{n-1}$. Comment on the results;
 
     ```{r}
@@ -578,24 +642,26 @@ curve(pnorm(x, mean = mu, sd = sigma), col = "red", lwd = 2, add = TRUE)
     set.seed(id)
 
     x_realizations <- rbinom(N, size = n_trials, prob = p_success)
-    
+
     y_realizations <- 0.5 * x_realizations - 1
-    
+
     sample_mean_y <- mean(y_realizations)
-    
+
     sample_variance_y <- var(y_realizations)
-    
+
     print(paste("Theoretical E(Y):", -0.25))
     print(paste("Sample Mean (Y-bar):", sample_mean_y))
-    
+
     print(paste("Theoretical Var(Y):", 0.1875))
     print(paste("Sample Variance (s^2):", sample_variance_y))
     ```
+
     The sample mean and variance is also pretty close to the theoretical one. But more interesting is that the transformation rules hold very nice:
+
     ```{r}
     transfomed_y_mean = 0.5*sample_mean_x - 1
     transformed_y_variance = 0.25*sample_variance_x
-    
+
     print(paste("Sample mean y calculated:", sample_mean_y))
     print(paste("Sample mean y transformed:", transfomed_y_mean))
     print(paste("Sample variance y calculated:", sample_variance_y))
