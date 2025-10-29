@@ -510,7 +510,223 @@ for (i in 1:length(n_values)) {
   cat("KS test p-value:", diff_result$p_value, "\n\n")
 }
 ```
+Task 2.2
+Simulation with predicteed n
+```{r}
+nu1 <- 51  # rate parameter for one sample (from Part 1)
+n_clicks <- 100  # number of clicks threshold
+time_limit <- 1  # 1 minute (60 seconds, we'll use minutes as unit)
+desired_prob <- 0.95  # desired safety probability
 
+
+N_markov <- 2000 / nu1
+cat("  N_Markov <=", floor(N_markov), "\n\n")
+
+
+chernoff_bound <- function(N_val, nu1, alpha = 0.05) {
+  nu <- nu1 * N_val
+  mu <- 100 / nu  # E[S]
+  
+  if (mu >= 1) {
+    return(1)  # Bound is trivial
+  }
+  
+  # Optimal t for Chernoff bound on P(S <= 1)
+  # For Gamma distribution with a < mu, the bound involves solving
+  # We use the approximation: t* = nu * (1 - 1/mu)
+  t_star <- nu - 100  # Optimal t
+  
+  if (t_star <= 0) {
+    return(1)
+  }
+  
+  # Chernoff bound value
+  bound <- (nu / (nu - t_star))^100 * exp(-t_star * 1)
+  return(bound)
+}
+
+# Binary search for N using Chernoff bound
+N_test <- seq(1, 50, by = 0.1)
+chernoff_bounds <- sapply(N_test, function(N) chernoff_bound(N, nu1, 0.05))
+N_chernoff <- max(N_test[chernoff_bounds <= 0.05])
+cat("  N_Chernoff <=", floor(N_chernoff), "\n")
+
+
+z_005 <- qnorm(0.05)
+nu_max_clt <- 100 + 10 * z_005
+N_clt <- nu_max_clt / nu1
+
+cat("  z_0.05 =", round(z_005, 4), "\n")
+cat("  nu_max =", round(nu_max_clt, 4), "\n")
+cat("  N_CLT <=", floor(N_clt), "\n\n")
+
+
+find_exact_N <- function(nu1, alpha = 0.05, time_limit = 1) {
+  # Start with reasonable bounds
+  # We know E[S] = 100/nu, so if we want E[S] > 1, then nu < 100
+  # For safety with probability 0.95, nu should be even smaller
+  N_lower <- 0
+  N_upper <- 2  # Start with small upper bound since nu1 = 51 is large
+  
+  # Find upper bound more carefully
+  while (N_upper < 10) {
+    nu_test <- nu1 * N_upper
+    prob_test <- pgamma(time_limit, shape = 100, rate = nu_test)
+    
+    # Check for NaN
+    if (is.nan(prob_test) || prob_test <= alpha) {
+      break
+    }
+    N_upper <- N_upper + 0.5
+  }
+  
+  # Binary search
+  tolerance <- 0.001
+  while (N_upper - N_lower > tolerance) {
+    N_mid <- (N_lower + N_upper) / 2
+    nu_mid <- nu1 * N_mid
+    prob <- pgamma(time_limit, shape = 100, rate = nu_mid)
+    
+    # Handle NaN cases
+    if (is.nan(prob)) {
+      N_upper <- N_mid
+    } else if (prob <= alpha) {
+      N_lower <- N_mid
+    } else {
+      N_upper <- N_mid
+    }
+  }
+  
+  return(N_lower)
+}
+
+N_exact <- find_exact_N(nu1, 0.05, 1)
+cat("  N_exact =", floor(N_exact), "\n\n")
+
+
+results_df <- data.frame(
+  Method = c("Markov Inequality", "Chernoff Bound", "Central Limit Theorem", "Exact (Gamma)"),
+  N_max = floor(c(N_markov, N_chernoff, N_clt, N_exact)),
+  nu_max = floor(c(N_markov, N_chernoff, N_clt, N_exact)) * nu1,
+  Type = c("Very Conservative", "Conservative", "Good Approximation", "Optimal")
+)
+
+print(results_df)
+
+
+
+N_predicted <- floor(N_clt)
+nu_predicted <- nu1 * N_predicted
+K <- 10000  # number of simulations
+
+cat("Using N =", N_predicted, "(from CLT)\n")
+cat("Thus nu =", nu_predicted, "\n")
+cat("Running", K, "simulations...\n\n")
+
+# Simulate K times
+set.seed(123)  # for reproducibility
+simulate_clicks <- function(nu, n_clicks, K) {
+  # Generate all samples at once for efficiency
+  all_samples <- rexp(n_clicks * K, rate = nu)
+  sample_matrix <- matrix(all_samples, nrow = n_clicks)
+  
+  # Sum each column to get S values
+  S_samples <- colSums(sample_matrix)
+  
+  return(S_samples)
+}
+
+S_samples <- simulate_clicks(nu_predicted, n_clicks, K)
+
+```
+Find safe s
+```{r}
+
+n_safe <- sum(S_samples > time_limit)
+prob_safe_simulated <- n_safe / K
+
+#P(S = 1) for comparison
+n_unsafe <- sum(S_samples <= time_limit)
+prob_unsafe_simulated <- n_unsafe / K
+
+cat("Number of safe outcomes (S > 1):", n_safe, "out of", K, "\n")
+cat("Estimated P(Safe) = P(S > 1) =", round(prob_safe_simulated, 4), "\n")
+cat("Estimated P(Unsafe) = P(S <= 1) =", round(prob_unsafe_simulated, 4), "\n\n")
+
+cat("COMPARISON WITH DESIRED LEVEL:\n")
+cat("Desired P(Safe) >= 0.95\n")
+cat("Simulated P(Safe) =", round(prob_safe_simulated, 4), "\n")
+cat("Difference:", round(prob_safe_simulated - desired_prob, 4), "\n\n")
+
+if (prob_safe_simulated >= desired_prob) {
+  cat("✓ SUCCESS: Simulated probability meets the requirement!\n\n")
+} else {
+  cat("✗ WARNING: Simulated probability below requirement.\n")
+  cat("  Consider using N =", floor(N_exact), "for safety.\n\n")
+}
+
+# Theoretical probability for comparison
+prob_safe_theoretical <- 1 - pgamma(time_limit, shape = n_clicks, rate = nu_predicted)
+cat("Theoretical P(Safe) with N =", N_predicted, ":", round(prob_safe_theoretical, 4), "\n\n")
+
+
+
+```
+
+Visualization for 2.2
+```{r}
+par(mfrow = c(1, 2), mar = c(5, 4, 4, 2) + 0.1)
+
+# Plot 1: Histogram of S values
+hist(S_samples, 
+     breaks = 50, 
+     probability = TRUE,
+     col = "lightblue",
+     border = "white",
+     main = paste("Distribution of S (N =", N_predicted, ")"),
+     xlab = "Total time S (minutes)",
+     ylab = "Density")
+
+# Add theoretical Gamma density
+x_seq <- seq(min(S_samples), max(S_samples), length.out = 200)
+lines(x_seq, dgamma(x_seq, shape = n_clicks, rate = nu_predicted), 
+      col = "red", lwd = 2)
+
+# Add vertical line at time limit
+abline(v = time_limit, col = "darkgreen", lwd = 2, lty = 2)
+
+# Shade the unsafe region
+x_unsafe <- seq(0, time_limit, length.out = 100)
+y_unsafe <- dgamma(x_unsafe, shape = n_clicks, rate = nu_predicted)
+polygon(c(0, x_unsafe, time_limit), c(0, y_unsafe, 0), 
+        col = rgb(1, 0, 0, 0.3), border = NA)
+
+legend("topright", 
+       legend = c("Simulated", "Theoretical Gamma", "Time Limit", "Unsafe Region"),
+       col = c("lightblue", "red", "darkgreen", rgb(1, 0, 0, 0.3)),
+       lwd = c(10, 2, 2, 10),
+       lty = c(1, 1, 2, 1))
+
+# Plot 2: Comparison of methods
+methods <- c("Markov", "Chernoff", "CLT", "Exact")
+N_values <- c(N_markov, N_chernoff, N_clt, N_exact)
+
+barplot(N_values,
+        names.arg = methods,
+        col = c("red", "orange", "lightgreen", "darkgreen"),
+        main = "Maximum N by Different Methods",
+        ylab = "Maximum Number of Samples (N)",
+        ylim = c(0, max(N_values) * 1.2))
+
+# Add value labels on bars
+text(x = seq(0.7, by = 1.2, length.out = 4), 
+     y = N_values + max(N_values) * 0.05,
+     labels = floor(N_values),
+     cex = 1.2, font = 2)
+
+abline(h = N_exact, col = "darkgreen", lty = 2, lwd = 2)
+
+```
 ------------------------------------------------------------------------
 
 ### Task 4.
