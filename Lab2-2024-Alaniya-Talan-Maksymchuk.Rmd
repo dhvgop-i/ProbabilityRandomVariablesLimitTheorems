@@ -9,15 +9,26 @@ output:
 ## General comments and instructions
 
 -   Complete solution will give you **4 points** (working code with explanations + oral defense). Submission deadline **November 1, 2023, 22:00**\
+
 -   The report must be prepared as an *R notebook*; you must submit to **cms** both the source *R notebook* **and** the generated html file\
+
 -   At the beginning of the notebook, provide a work-breakdown structure estimating efforts of each team member\
+    Ivan Maksymchuk - Task1, Task4
+
+    Teodor Talan - Task2
+
+    Lili Alania - Task3
+
 -   For each task, include
+
     -   problem formulation and discussion (what is a reasonable answer to discuss);\
     -   the corresponding $\mathbf{R}$ code with comments (usually it is just a couple of lines long);\
     -   the statistics obtained (like sample mean or anything else you use to complete the task) as well as histograms etc to illustrate your findings;\
     -   justification of your solution (e.g. refer to the corresponding theorems from probability theory);\
     -   conclusions (e.g. how reliable your answer is, does it agree with common sense expectations etc)\
+
 -   The **team id number** referred to in tasks is the **two-digit** ordinal number of your team on the list. Include the line **set.seed(team id number)** at the beginning of your code to make your calculations reproducible. Also observe that the answers **do** depend on this number!\
+
 -   Take into account that not complying with these instructions may result in point deduction regardless of whether or not your implementation is correct.
 
 ------------------------------------------------------------------------
@@ -142,7 +153,7 @@ print(paste("Estimated probability (p-hat) of correct transmission:", p_hat))
 
 As we can see for p = 0.41, N = 100 is not large enough to have $p^*$ close to $\hat{p}$
 
-2.  95% confidence interval for $p^*$ is given by $(\hat{p}-\epsilon, \hat{p}+\epsilon)$, where: $\epsilon = 1.96 \cdot \sqrt{\frac{\hat{p}(1-\hat{p})}{N}}$, so for $\epsilon \le 0.03$ we will have: $0.03 \ge 1.96 \cdot \sqrt{\frac{\hat{p}(1-\hat{p})}{N}} \to N \ge \hat{p}(1-\hat{p})\cdot(1.96/0.03)^2$ so for our $\hat{p} = 0.99$ we will have:
+2.  95% confidence interval for $p^*$ is given by $(\hat{p}-\epsilon, \hat{p}+\epsilon)$, where: $\epsilon = 1.96 \cdot \sqrt{\frac{\hat{p}(1-\hat{p})}{N}}$, so for $\epsilon \le 0.03$ we will have: $0.03 \ge 1.96 \cdot \sqrt{\frac{\hat{p}(1-\hat{p})}{N}} \to N \ge \hat{p}(1-\hat{p})\cdot(1.96/0.03)^2$ so for our $\hat{p}$ we will have:
 
 ```{r}
 N_bound = p_hat*(1-p_hat) * (1.96/0.03)^2
@@ -415,7 +426,7 @@ run_simulation_analysis(mu = calculated_mu,
 ```{r}
 nu1 <- 51
 K <- 1e3
-n <- 50
+n <- 5
 sample_means <- colMeans(matrix(rexp(n*K, rate = nu1), nrow = n))
 ```
 
@@ -476,12 +487,12 @@ calculate_max_difference <- function(result) {
   
   ks_test <- ks.test(sample_means, "pnorm", mean = mu, sd = sigma)
   
-  max_diff <- ks_test$statistic  # The maximum distance D
-  p_value <- ks_test$p.value     # Probability of seeing this difference by chance
+  max_diff <- ks_test$statistic
+  p_value <- ks_test$p.value
   
   return(list(
-    max_diff = max_diff,  # How far apart the distributions are
-    p_value = p_value     # Is this difference statistically significant?
+    max_diff = max_diff,
+    p_value = p_value
   ))
 }
 calculate_max_difference(calc_sample_means(n, K, nu1))
@@ -510,42 +521,44 @@ for (i in 1:length(n_values)) {
   cat("KS test p-value:", diff_result$p_value, "\n\n")
 }
 ```
-Task 3.2
-Simulation with predicteed n
+
+-   For **small** n=5, the empirical distribution of sample means is still visibly skewed, and KS test strongly rejects the normality hypothesis (very low p-value).
+
+-   When n=10, the skewness decreases, and the empirical cumulative distribution function (ECDF) becomes closer to the theoretical normal CDF.
+
+-   For **larger** n=50, the ECDF almost coincides with the normal curve, and the KS statistic is small with a p-value above 0.05, indicating no significant difference between the two distributions.
+
+    Task 3.2 Simulation with predicted n
+
 ```{r}
-nu1 <- 51  # rate parameter for one sample (from Part 1)
-n_clicks <- 100  # number of clicks threshold
-time_limit <- 1  # 1 minute (60 seconds, we'll use minutes as unit)
-desired_prob <- 0.95  # desired safety probability
+nu1 <- 51
+n_clicks <- 100
+time_limit <- 1 
+desired_prob <- 0.95
 
 
-N_markov <- 2000 / nu1
+N_markov <- 4.95/51
 cat("  N_Markov <=", floor(N_markov), "\n\n")
 
 
 chernoff_bound <- function(N_val, nu1, alpha = 0.05) {
   nu <- nu1 * N_val
-  mu <- 100 / nu  # E[S]
+  mu <- 100 / nu
   
   if (mu >= 1) {
-    return(1)  # Bound is trivial
+    return(1) 
   }
   
-  # Optimal t for Chernoff bound on P(S <= 1)
-  # For Gamma distribution with a < mu, the bound involves solving
-  # We use the approximation: t* = nu * (1 - 1/mu)
-  t_star <- nu - 100  # Optimal t
+  t_star <- nu - 100
   
   if (t_star <= 0) {
     return(1)
   }
   
-  # Chernoff bound value
   bound <- (nu / (nu - t_star))^100 * exp(-t_star * 1)
   return(bound)
 }
 
-# Binary search for N using Chernoff bound
 N_test <- seq(1, 50, by = 0.1)
 chernoff_bounds <- sapply(N_test, function(N) chernoff_bound(N, nu1, 0.05))
 N_chernoff <- max(N_test[chernoff_bounds <= 0.05])
@@ -562,25 +575,18 @@ cat("  N_CLT <=", floor(N_clt), "\n\n")
 
 
 find_exact_N <- function(nu1, alpha = 0.05, time_limit = 1) {
-  # Start with reasonable bounds
-  # We know E[S] = 100/nu, so if we want E[S] > 1, then nu < 100
-  # For safety with probability 0.95, nu should be even smaller
   N_lower <- 0
-  N_upper <- 2  # Start with small upper bound since nu1 = 51 is large
-  
-  # Find upper bound more carefully
+  N_upper <- 2
   while (N_upper < 10) {
     nu_test <- nu1 * N_upper
     prob_test <- pgamma(time_limit, shape = 100, rate = nu_test)
     
-    # Check for NaN
     if (is.nan(prob_test) || prob_test <= alpha) {
       break
     }
     N_upper <- N_upper + 0.5
   }
   
-  # Binary search
   tolerance <- 0.001
   while (N_upper - N_lower > tolerance) {
     N_mid <- (N_lower + N_upper) / 2
@@ -639,94 +645,65 @@ simulate_clicks <- function(nu, n_clicks, K) {
 S_samples <- simulate_clicks(nu_predicted, n_clicks, K)
 
 ```
-Find safe s
+
+-   **Markov Inequality (N ≤ 0)**: suggests that **no samples can be stored safely**
+
+    **Chernoff Bound (N ≤ 50)**: Dramatically overestimates the safe capacity. This bound is too loose for our problem because it doesn't account for the specific shape of the Gamma distribution with relatively large shape parameter (100). The bound suggests 50 samples could be stored, which is **highly unrealistic**
+
+    **Central Limit Theorem (N ≤ 1)**: Provides a conservative but realistic estimate. Using the normal approximation with z₀.₀₅ = -1.6449, we get ν_max ≈ 83.55, yielding **N = 1 sample**. This approximation is reliable and matches the exact solution.
+
+    **Exact Calculation (N ≤ 1)**: Using the Gamma(100, ν) distribution directly confirms that **N = 1 sample** is the maximum safe capacity.\
+
 ```{r}
+est_prob_safe <- mean(S_samples > time_limit)
+se <- sqrt(est_prob_safe * (1 - est_prob_safe) / K)
+z95 <- qnorm(0.975)
+ci_lower <- est_prob_safe - z95 * se
+ci_upper <- est_prob_safe + z95 * se
+ci_lower <- max(0, ci_lower)
+ci_upper <- min(1, ci_upper)
 
-n_safe <- sum(S_samples > time_limit)
-prob_safe_simulated <- n_safe / K
+cat("Simulation results (K =", K, "):\n")
+cat("  Estimated P(S > ", time_limit, ") =", signif(est_prob_safe, 5), "\n")
+cat("  95% CI = [", signif(ci_lower,5), ",", signif(ci_upper,5), "]\n")
+cat("  Desired prob =", desired_prob, "\n\n")
 
-#P(S = 1) for comparison
-n_unsafe <- sum(S_samples <= time_limit)
-prob_unsafe_simulated <- n_unsafe / K
-
-cat("Number of safe outcomes (S > 1):", n_safe, "out of", K, "\n")
-cat("Estimated P(Safe) = P(S > 1) =", round(prob_safe_simulated, 4), "\n")
-cat("Estimated P(Unsafe) = P(S <= 1) =", round(prob_unsafe_simulated, 4), "\n\n")
-
-cat("COMPARISON WITH DESIRED LEVEL:\n")
-cat("Desired P(Safe) >= 0.95\n")
-cat("Simulated P(Safe) =", round(prob_safe_simulated, 4), "\n")
-cat("Difference:", round(prob_safe_simulated - desired_prob, 4), "\n\n")
-
-if (prob_safe_simulated >= desired_prob) {
-  cat("✓ SUCCESS: Simulated probability meets the requirement!\n\n")
+if (est_prob_safe >= desired_prob) {
+  cat("  -> Safety not reached, estimate >= ", desired_prob, ")\n")
 } else {
-  cat("✗ WARNING: Simulated probability below requirement.\n")
-  cat("  Consider using N =", floor(N_exact), "for safety.\n\n")
+  cat("  -> Safety not reached, estimate < ", desired_prob, ")\n")
+}
+num_safe <- sum(S_samples > time_limit)
+cat("  Safe cases:", num_safe, "із", K, "\n\n")
+
+hist(S_samples, breaks = 80, main = "Histogram of S (time to 100th click)",
+     xlab = "S (minutes)")
+abline(v = time_limit, lwd = 2, lty = 2)
+legend("topright", legend = paste0("time_limit = ", time_limit, " min"), lty = 2, lwd = 2)
+
+find_simulated_N <- function(nu1, target_prob = 0.95, n_clicks = 100, time_limit = 1, K = 5000) {
+  N_vals <- seq(0.01, 3, by = 0.01)
+  probs <- numeric(length(N_vals))
+  
+  for (i in seq_along(N_vals)) {
+    nu <- nu1 * N_vals[i]
+    S_samples <- colSums(matrix(rexp(n_clicks * K, rate = nu), nrow = n_clicks))
+    probs[i] <- mean(S_samples > time_limit)
+  }
+  
+  df <- data.frame(N = N_vals, prob_safe = probs)
+  best <- df[which.min(abs(df$prob_safe - target_prob)), ]
+  cat("N giving P(S>1) ≈", target_prob, "is about", round(best$N, 3), "\n")
+  return(df)
 }
 
-# Theoretical probability for comparison
-prob_safe_theoretical <- 1 - pgamma(time_limit, shape = n_clicks, rate = nu_predicted)
-cat("Theoretical P(Safe) with N =", N_predicted, ":", round(prob_safe_theoretical, 4), "\n\n")
-
-
-
-```
-
-Visualization for 3.2
-```{r}
-par(mfrow = c(1, 2), mar = c(5, 4, 4, 2) + 0.1)
-
-# Plot 1: Histogram of S values
-hist(S_samples, 
-     breaks = 50, 
-     probability = TRUE,
-     col = "lightblue",
-     border = "white",
-     main = paste("Distribution of S (N =", N_predicted, ")"),
-     xlab = "Total time S (minutes)",
-     ylab = "Density")
-
-# Add theoretical Gamma density
-x_seq <- seq(min(S_samples), max(S_samples), length.out = 200)
-lines(x_seq, dgamma(x_seq, shape = n_clicks, rate = nu_predicted), 
-      col = "red", lwd = 2)
-
-# Add vertical line at time limit
-abline(v = time_limit, col = "darkgreen", lwd = 2, lty = 2)
-
-# Shade the unsafe region
-x_unsafe <- seq(0, time_limit, length.out = 100)
-y_unsafe <- dgamma(x_unsafe, shape = n_clicks, rate = nu_predicted)
-polygon(c(0, x_unsafe, time_limit), c(0, y_unsafe, 0), 
-        col = rgb(1, 0, 0, 0.3), border = NA)
-
-legend("topright", 
-       legend = c("Simulated", "Theoretical Gamma", "Time Limit", "Unsafe Region"),
-       col = c("lightblue", "red", "darkgreen", rgb(1, 0, 0, 0.3)),
-       lwd = c(10, 2, 2, 10),
-       lty = c(1, 1, 2, 1))
-
-# Plot 2: Comparison of methods
-methods <- c("Markov", "Chernoff", "CLT", "Exact")
-N_values <- c(N_markov, N_chernoff, N_clt, N_exact)
-
-barplot(N_values,
-        names.arg = methods,
-        col = c("red", "orange", "lightgreen", "darkgreen"),
-        main = "Maximum N by Different Methods",
-        ylab = "Maximum Number of Samples (N)",
-        ylim = c(0, max(N_values) * 1.2))
-
-# Add value labels on bars
-text(x = seq(0.7, by = 1.2, length.out = 4), 
-     y = N_values + max(N_values) * 0.05,
-     labels = floor(N_values),
-     cex = 1.2, font = 2)
-
-abline(h = N_exact, col = "darkgreen", lty = 2, lwd = 2)
+sim_df <- find_simulated_N(nu1 = 51, target_prob = 0.95)
+plot(sim_df$N, sim_df$prob_safe, type = "l", main = "Estimated P(S>1) vs N",
+     xlab = "N", ylab = "Estimated P(S>1)")
+abline(h = 0.95, col = "red", lty = 2)
 
 ```
+
 ------------------------------------------------------------------------
 
 ### Task 4.
@@ -766,7 +743,7 @@ abline(h = N_exact, col = "darkgreen", lty = 2, lwd = 2)
     # YOUR CODE HERE
     N <- 1000
     lambda <- 2
-    set.seed(id)
+    set.seed(41)
 
     x <- rexp(N, rate = lambda)
     y <- rexp(N, rate = lambda)
@@ -890,3 +867,5 @@ For X and Y we see on scatterplot a shapeless set of points denser near the orig
 ### General summary and conclusions
 
 Summarize here what you've done, whether you solved the tasks, what difficulties you had etc.
+
+We've learned how to apply Markov and Chernoff's inequalities in practice.
