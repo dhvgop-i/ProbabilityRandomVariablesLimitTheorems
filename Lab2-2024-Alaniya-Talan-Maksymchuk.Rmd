@@ -206,6 +206,7 @@ Assume that a medical laboratory receives $n$ samples of radioactive element ${{
 
 ```{r}
 
+
 calculate_poisson_param <- function(team_id, molar_mass_Cs137) {
   N_A <- 6.022e23       # Avogadro
   T_years <- 30.1       # Half-life
@@ -364,7 +365,7 @@ run_simulation_analysis <- function(mu, n_values, K, critical_sum) {
     cat(sprintf("  Empirical prob (sum %.0e) = %.4f (for n=%d)\n", critical_sum, empirical_prob, n_target))
 
     cat(sprintf("  Empirical prob %.4f %s is close to 0.95.\n",
-                empirical_prob, ifelse(abs(empirical_prob - 0.95) < 0.02, "is", "isn't")))
+                empirical_prob, ifelse(abs(empirical_prob - 0.95) < 0.02, "is", "")))
   } else {
     cat("Err")
   }
@@ -379,7 +380,7 @@ run_simulation_analysis <- function(mu, n_values, K, critical_sum) {
 
 
 
-my_team_id <- 1
+my_team_id <- 41
 molar_mass_cesium137 <- 137
 
 calculated_mu <- calculate_poisson_param(team_id = my_team_id,
@@ -392,9 +393,50 @@ run_simulation_analysis(mu = calculated_mu,
                         K = 1000,
                         critical_sum = 8e8)
 
-
-
 ```
+
+
+## 1. Poisson parameter
+- Compute the Poisson parameter \(\mu\) for \(X_i\) using:
+  \[
+  \mu = N_\text{atoms} \cdot \lambda_\text{activity}, \quad
+  \lambda_\text{activity} = \frac{\ln 2}{T_\text{half-life}}
+  \]
+- Inputs: atomic mass of Cs-137, half-life, team mass, Avogadro's number.
+
+---
+
+## 2. Sample means distribution
+### 2.1. Generate sample means
+- Draw \(n\) Poisson random variables and compute the sample mean.
+- Repeat **K times** to get a vector of means \((s_1, \dots, s_K)\).
+
+### 2.2. Compare with normal
+- Normal approximation:  
+  \(\mu_\text{normal} = \mu, \quad \sigma^2_\text{normal} = \mu/n\)
+- Plot **empirical CDF** vs **normal CDF**.
+
+### 2.3. Max CDF difference
+- Compute \(D = \max | \hat F_\mathbf{s}(x) - F_\text{normal}(x) |\)
+- Compare results for \(n = 5, 10, 50\) and comment on convergence.
+
+---
+
+## 3. Maximum n for decay limit
+### 3.1. Theoretical bounds
+- Solve for \(n\) so that:
+  \[
+  P(X_1 + \dots + X_n < 8 \cdot 10^8) \ge 0.95
+  \]
+- Use **Markov inequality, Chernoff bound, CLT** and compare results.
+
+### 3.2. Simulation
+- Generate sums \(s = X_1 + \dots + X_n\) **K times**.
+- Count fraction below \(8 \cdot 10^8\) → empirical probability.
+- Compare with 0.95 and comment.
+
+---
+
 
 **Next, proceed with all the remaining steps**
 
