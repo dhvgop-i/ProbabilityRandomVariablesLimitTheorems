@@ -510,7 +510,7 @@ for (i in 1:length(n_values)) {
   cat("KS test p-value:", diff_result$p_value, "\n\n")
 }
 ```
-Task 2.2
+Task 3.2
 Simulation with predicteed n
 ```{r}
 nu1 <- 51  # rate parameter for one sample (from Part 1)
@@ -673,7 +673,7 @@ cat("Theoretical P(Safe) with N =", N_predicted, ":", round(prob_safe_theoretica
 
 ```
 
-Visualization for 2.2
+Visualization for 3.2
 ```{r}
 par(mfrow = c(1, 2), mar = c(5, 4, 4, 2) + 0.1)
 
